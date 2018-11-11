@@ -1,9 +1,14 @@
 # -*- coding: utf-8 -*-
+
+print("Loading the required libraries...")
+
 from helpers import *
 from helpers_cntk import *
 import os
 from sys import platform
 locals().update(importlib.import_module("PARAMETERS").__dict__)
+from random import sample
+import subprocess
 
 ####################################
 # Specify Input Image Data for Scoring
@@ -22,7 +27,9 @@ makeDirectory(procDir)
 imgFilenamesTest  = dict()
 imgFilenamesTrain = dict()
 
-print("[InProgress] Preparing test images...")
+print("""
+We will now prepare the sample images found in '{}'""".format(imgDir))
+
 subdirs = getDirectoriesInDirectory(imgDir)
 for subdir in subdirs:
     filenames = getFilesInDirectory(imgDir + subdir, ".jpg")
@@ -45,18 +52,23 @@ for subdir in subdirs:
 
     # Debug print
     if subdir in imgFilenamesTest:
-        print("Testing:  {:5} images in directory {}".format(len(imgFilenamesTest[subdir]), subdir))
-
+        print(""" {:2} images in the sub-directory '{}'""".format(len(imgFilenamesTest[subdir]), subdir))
 
 # Save assignments of images to test
+
 saveToPickle(imgFilenamesTestPath,  imgFilenamesTest)
 
 # Compute positive and negative image pairs
-print("[InProgress] Computing image pairs for test data ...")
+
+print("""
+Computing image pairs from the sample dataset...""")
 imgInfosTest = getImagePairs(imgFilenamesTest, test_maxQueryImgsPerSubdir, test_maxNegImgsPerQueryImg)
 saveToPickle(imgInfosTestPath, imgInfosTest)
 
-print("[Complete] Data preparation")
+sys.stdout.write("""
+Data preparation is now complete. Please press Enter to continue: """)
+input()
+print("")
 
 ################################################
 # Featurize Images
@@ -66,17 +78,17 @@ printDeviceType()
 makeDirectory(workingDir)
 model = load_model(cntkRefinedModelPath)
 
-# Compute features for each image and write to disk
-print("[InProgress] Featurizing test set...")
+# Compute features for each image and write to disk.
+
+print("\nWe will now featurize the dataset of images...")
 featuresTest  = featurizeImages(model, imgFilenamesTestPath,  imgDir, workingDir + "/featurizer_map.txt", "poolingLayer", run_mbsize)
 features = featuresTest
 for feat in list(features.values()):
     assert(len(feat) == rf_modelOutputDimension)
 
 # Save features to file
-print("[Complete] Writing CNTK outputs to file %s ..." % featuresPath)
+print("\nCNTK outputs will be saved into\n %s ..." % featuresPath)
 saveToPickle(featuresPath, features)
-print("[Complete] Featurization")
 
 ####################################
 # Score SVM
@@ -99,17 +111,17 @@ svmBias    = learner.base_estimator.intercept_
 svmWeights = np.array(learner.base_estimator.coef_[0])
 
 # Load data
-print("[InProgress] Loading featurized test data...")
+#print("[InProgress] Loading featurized test data...")
 ImageInfo.allFeatures = loadFromPickle(featuresPath)
 imgInfos = loadFromPickle(imgInfosTestPath)
 
 # Compute distances between all image pairs
-print("[InProgress] Computing pair-wise distances...")
+#print("[InProgress] Computing pair-wise distances...")
 allDists = { queryIndex:collections.defaultdict(list) for queryIndex in range(len(imgInfos)) }
 for queryIndex, queryImgInfo in enumerate(imgInfos):
     queryFeat = queryImgInfo.getFeat()
-    if queryIndex % 50 == 0:
-        print("Computing distances for query image {} of {}: {}..".format(queryIndex, len(imgInfos), queryImgInfo.fname))
+#    if queryIndex % 50 == 0:
+        # print("Computing distances for query image {} of {}: {}..".format(queryIndex, len(imgInfos), queryImgInfo.fname))
 
     # Loop over all reference images and compute distances
     for refImgInfo in queryImgInfo.children:
@@ -119,12 +131,20 @@ for queryIndex, queryImgInfo in enumerate(imgInfos):
             allDists[queryIndex][distMethod].append(dist)
 
 # Find match with minimum distance (rank 1)
-print("[InProgress] Showing matching image and correct image with minimum weightedl2 distance for query image: ")
-fmt = "{0:<15.15} : {1:<15.15} : {2:<15.15} : {3:<15.15} : {4:<10.10} : {5:<15.15} : {6:<15.15} : {7:<10.10}"
-print(fmt.format("queryImgName", "queryLabel", "matchingImgName", "minDistLabel", "minDist", "correctImgName", "correctLabel", "correctDist"))
+#print("[InProgress] Showing matching image and correct image with minimum weightedl2 distance for query image: ")
 
-fmt = "{0:<15.15} : {1:<15.15} : {2:<15.15} : {3:<15.15} : {4:<10.2f} : {5:<15.15} : {6:<15.15} : {7:<10.2f}"
+print("""
+Display a selection of source images and minimum distance matches:""")
+
+selected = random.sample(range(len(imgInfos)), 10)
+
+fmt = "\n{0:<6.6} : {1:<7.7} : {2:<6.6} : {3:<7.7} : {4:<4.4} : {5:<6.6} : {6:<7.7} : {7:<4.4} : {8:<5.5}"
+print(fmt.format("Img", "Label", "Match", "Label", "Dist", "Best", "Label", "Dist", "Error"))
+
+fmt = "{0:>6.6} : {1:<7.7} : {2:>6.6} : {3:<7.7} : {4:>4.1f} : {5:>6.6} : {6:<7.7} : {7:>4.1f} : {8:<4.4}"
+i = 0
 for queryIndex, queryImgInfo in enumerate(imgInfos):
+    i += 1
     dists = allDists[queryIndex]["weightedl2"]
     # Find match with minimum distance (rank 1)
     sortOrder = np.argsort(dists)
@@ -138,7 +158,12 @@ for queryIndex, queryImgInfo in enumerate(imgInfos):
     queryLabel = queryImgInfo.subdir
     minDistLabel = imgInfos[queryIndex].children[minDistIndex].subdir    
     correctLabel = queryLabel
-    print(fmt.format(queryImgName, queryLabel, minDistImgName, minDistLabel, minDist, correctImgName, correctLabel, correctDist))
+    if (minDistImgName == correctImgName):
+        error = ""
+    else:
+        error = "<==="
+    if (i in selected):
+      print(fmt.format(queryImgName, queryLabel, minDistImgName, minDistLabel, minDist, correctImgName, correctLabel, correctDist, error))
 
 # Check whether display is available
 displayAvailable = os.path.exists("display.py")
@@ -149,7 +174,7 @@ if (displayAvailable):
     if boVisualizeResults:
         makeDirectory(resultsDir)
         makeDirectory(visualizationDir)
-        print("[InProgress] Writing images to " +  visualizationDir)
+        print("\nDemo images being written to:\n " +  visualizationDir)
 
         # Loop over all query images
         for queryIndex, queryImgInfo in enumerate(imgInfos):
@@ -186,11 +211,22 @@ if (displayAvailable):
     else:
         fn = queryImgInfo.fname.replace('/','-')
         
-    msg = """
-The individual classified images can be displayed:
+    sys.stdout.write("""
+Images have been saved. Please press Enter to continue on to view them: """)
+    input()
 
- $ ml display clothes-recommender
-""".format(fn)
-    print(msg)
+    visualizationDir = resultsDir + "visualizations_weightedl2/" + "demo" + "_results/"
+
+    if (platform == "linux" or platform == "linux2"):
+        try:
+            subprocess.call(["eom", visualizationDir])
+        except OSError as e:
+            if e.errno == os.errno.ENOENT:
+                image = Image.open(visualizationDir)
+                image.show()
+    else:
+        image = Image.open(visualizationDir + "demo")
+        image.show()
+
 else:
     print("")

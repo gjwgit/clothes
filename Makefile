@@ -1,6 +1,6 @@
 ########################################################################
 #
-# Makefile for clothes-recommender pre-build ML model
+# Makefile for clothes recommender pre-built ML model
 #
 ########################################################################
 
@@ -9,26 +9,26 @@
 MODEL_FILES = 		\
 	configure.sh	\
 	demo.py		\
-	display.py	\
-	helpers_cntk.py \
-	helpers.py	\
 	print.py	\
+	display.py	\
 	score.py	\
-	PARAMETERS.py	\
 	README.txt	\
 	DESCRIPTION.yaml\
+	PARAMETERS.py	\
+	helpers_cntk.py \
+	helpers.py	\
 	data		\
 	proc
 
 # Include the standard Makefile template.
 
-include ../mlhub.mk
 include ../git.mk
 include ../clean.mk
 include ../pandoc.mk
+include ../mlhub.mk
 
 clean::
 	rm -rf README.txt output
 
 realclean:: clean
-	rm -rf clothes-recommender_*.mlm
+	rm -f $(MODEL)_*.mlm

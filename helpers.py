@@ -199,7 +199,7 @@ def getImagePairs(imgFilenames, maxQueryImgsPerSubdir, maxNegImgsPerQueryImg):
             # Store
             queryInfo.children = randomizeList(queryInfo.children)
             imgInfos.append(queryInfo)
-    print("Generated image pairs for {} query images, each with 1 positive image pair and {} negative image pairs.".format(len(imgInfos), maxNegImgsPerQueryImg))
+    print(" {} query images each with 1 positive image pair and {} negative image pairs.".format(len(imgInfos), maxNegImgsPerQueryImg))
     return imgInfos
 
 
