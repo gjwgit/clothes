@@ -65,7 +65,7 @@ Computing image pairs from the sample dataset...""")
 imgInfosTest = getImagePairs(imgFilenamesTest, test_maxQueryImgsPerSubdir, test_maxNegImgsPerQueryImg)
 saveToPickle(imgInfosTestPath, imgInfosTest)
 
-sys.stdout.write("""
+sys.stderr.write("""
 Data preparation is now complete. Please press Enter to continue: """)
 input()
 print("")

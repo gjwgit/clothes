@@ -18,7 +18,8 @@ MODEL_FILES = 		\
 	helpers_cntk.py \
 	helpers.py	\
 	data		\
-	proc
+	proc/fashionTexture/cntk.model  \
+	proc/fashionTexture/svm.np	\
 
 # Include the standard Makefile template.
 
